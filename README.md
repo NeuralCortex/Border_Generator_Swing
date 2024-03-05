@@ -1,6 +1,6 @@
 # Border Generator Swing 1.0.0
 
-![image](https://github.com/NeuralCortex/Border_Generator/blob/main/images/border.png)
+![image](https://github.com/NeuralCortex/Border_Generator_Swing/blob/main/app.png)
 
 ## Funktionsweise des Programms
 
