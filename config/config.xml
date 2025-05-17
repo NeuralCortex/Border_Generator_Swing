@@ -2,4 +2,6 @@
 <!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
 <properties>
 <comment>Comment</comment>
+<entry key="DIR_HCM_INPUT">D:\Development\Netbeans\Border_Generator_Swing\HCM</entry>
+<entry key="DIR_CSV_INPUT">D:\Development\Netbeans\Border_Generator_Swing\CSV</entry>
 </properties>

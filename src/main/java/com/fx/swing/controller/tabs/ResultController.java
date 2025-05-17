@@ -338,7 +338,7 @@ public class ResultController extends JPanel implements PopulateInterface, Actio
         if (result == JFileChooser.APPROVE_OPTION) {
             File files[] = fileChooser.getSelectedFiles();
             if (files.length > 0) {
-                Globals.propman.put(Globals.DIR_CSV_INPUT, files[0].getAbsolutePath());
+                Globals.propman.put(Globals.DIR_CSV_INPUT, files[0].getParent());
                 Globals.propman.save();
             }
 
@@ -359,7 +359,7 @@ public class ResultController extends JPanel implements PopulateInterface, Actio
         if (result == JFileChooser.APPROVE_OPTION) {
             File files[] = fileChooser.getSelectedFiles();
             if (files.length > 0) {
-                Globals.propman.put(Globals.DIR_HCM_INPUT, files[0].getAbsolutePath());
+                Globals.propman.put(Globals.DIR_HCM_INPUT, files[0].getParent());
                 Globals.propman.save();
             }
 
