@@ -1,9 +1,12 @@
 package com.fx.swing;
 
+import com.formdev.flatlaf.FlatLaf;
 import com.fx.swing.controller.MainController;
-import com.fx.swing.themes.ThemeFX;
+import com.fx.swing.themes.ThemeFX_Dark;
+import com.fx.swing.themes.ThemeFX_Light;
 import com.fx.swing.tools.HelperFunctions;
 import java.io.File;
+import java.util.HashMap;
 import java.util.ResourceBundle;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
@@ -16,6 +19,7 @@ public class MainApp {
 
     private static final Logger _log = LogManager.getLogger(MainApp.class);
     private final ResourceBundle bundle = ResourceBundle.getBundle(Globals.BUNDLE_PATH, Globals.DEFAULT_LOCALE);
+    private final HashMap<String, FlatLaf> lafMap = new HashMap<>();
 
     public static void main(String[] args) {
         MainApp mainApp = new MainApp();
@@ -24,9 +28,13 @@ public class MainApp {
 
     private void init() {
         initLogger(Globals.LOG4J2_CONFIG_PATH);
-        ThemeFX.setup();
+        ThemeFX_Dark.setup();
+
+        lafMap.put(Globals.THEME_LIGHT, new ThemeFX_Light());
+        lafMap.put(Globals.THEME_DARK, new ThemeFX_Dark());
+
         try {
-            UIManager.setLookAndFeel(new ThemeFX());
+            UIManager.setLookAndFeel(lafMap.get(Globals.propman.getProperty(Globals.THEME, Globals.THEME_DARK)));
         } catch (Exception ex) {
             _log.error(ex.getMessage());
         }
@@ -36,7 +44,7 @@ public class MainApp {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(Globals.WIDTH, Globals.HEIGHT);
 
-        MainController mainController = new MainController(frame, bundle);
+        MainController mainController = new MainController(lafMap, frame, bundle);
 
         HelperFunctions.centerWindow(frame);
 
