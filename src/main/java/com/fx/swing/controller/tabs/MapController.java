@@ -31,6 +31,8 @@ import java.awt.Dialog;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -55,6 +57,9 @@ import org.jxmapviewer.painter.Painter;
 import org.jxmapviewer.viewer.DefaultTileFactory;
 import org.jxmapviewer.viewer.GeoPosition;
 import org.jxmapviewer.viewer.TileFactoryInfo;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LinearRing;
 
 public class MapController extends JPanel implements PopulateInterface, ActionListener {
 
@@ -76,6 +81,7 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
     private final HashMap<Integer, List<PositionPOJO>> mapBorder = new HashMap<>();
     private HashMap<Double, List<PositionPOJO>> mapLoad = new HashMap<>();
     private InfoPOJO infoPOJO;
+    private GeoPosition marker;
 
     public MapController(MainController mainController) {
         this.mainController = mainController;
@@ -202,7 +208,7 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
 
             ObjectMapper objectMapper = new ObjectMapper();
             objectMapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
-            String state = address.getValue().replace(" ", "%20");
+            String state = URLEncoder.encode(address.getValue(), StandardCharsets.UTF_8);
             String baseURL = "https://nominatim.openstreetmap.org/search?" + address.getParam().toLowerCase() + "=" + state + "&polygon_geojson=1&format=geojson";
 
             JsonNode root;
@@ -246,13 +252,14 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
                         idx++;
                     }
                 }
-                int max = -9999;
                 int idx = 0;
+
                 for (Integer key : mapBorder.keySet()) {
                     List<PositionPOJO> list = mapBorder.get(key);
-                    if (list.size() > max) {
-                        max = list.size();
+
+                    if (isGeoPositionInsidePolygon(marker, list)) {
                         idx = key;
+                        break;
                     }
                 }
 
@@ -262,6 +269,36 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
                 ex.printStackTrace();
             }
         }
+    }
+
+    private boolean isGeoPositionInsidePolygon(GeoPosition point, List<PositionPOJO> polygonPoints) {
+        // Validate input
+        if (polygonPoints == null || polygonPoints.size() < 3) {
+            System.out.println("Error: Invalid polygon (needs at least 3 points).");
+            return false;
+        }
+
+        // Create JTS GeometryFactory
+        GeometryFactory factory = new GeometryFactory();
+
+        // Convert List<PositionPOJO> to JTS Coordinate array
+        Coordinate[] coordinates = new Coordinate[polygonPoints.size() + 1];
+        for (int i = 0; i < polygonPoints.size(); i++) {
+            PositionPOJO pojo = polygonPoints.get(i);
+            coordinates[i] = new Coordinate(pojo.getLon(), pojo.getLat());
+        }
+        // Close the polygon by repeating the first point
+        coordinates[polygonPoints.size()] = coordinates[0];
+
+        // Create a LinearRing and Polygon
+        LinearRing ring = factory.createLinearRing(coordinates);
+        org.locationtech.jts.geom.Polygon polygon = factory.createPolygon(ring, null);
+
+        // Convert GeoPosition to JTS Point
+        org.locationtech.jts.geom.Point jtsPoint = factory.createPoint(new Coordinate(point.getLongitude(), point.getLatitude()));
+
+        // Check if the point is inside the polygon
+        return jtsPoint.within(polygon);
     }
 
     private void initScaleTable(List<PositionPOJO> border) {
@@ -374,6 +411,7 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
             ((ScaleTableModel) tableScale.getModel()).fireTableDataChanged();
 
             getGeoInfos(geoPosition);
+            marker = geoPosition;
 
             CompoundPainter<JXMapViewer> painter = new CompoundPainter<>(painters);
             mapViewer.setOverlayPainter(painter);
