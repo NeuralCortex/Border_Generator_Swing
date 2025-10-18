@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.fx</groupId>
     <artifactId>Border_Generator_Swing</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -114,6 +114,8 @@
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>lib/</classpathPrefix>
                             <mainClass>com.fx.swing.MainApp</mainClass>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                            <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
                         </manifest>
                     </archive>
                 </configuration>
@@ -125,6 +127,13 @@
                 <directory>src/main/java</directory>
                 <includes>
                     <include>**/*.properties</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <includes>
+                    <include>**/*.xml</include>
+                    <include>**/*.png</include>
                 </includes>
             </resource>
         </resources>

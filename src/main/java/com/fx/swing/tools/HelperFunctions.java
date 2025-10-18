@@ -3,10 +3,13 @@ package com.fx.swing.tools;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.Image;
 import java.awt.Toolkit;
 import java.awt.Window;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import javax.swing.Icon;
+import javax.swing.ImageIcon;
 import javax.swing.JTabbedPane;
 import org.apache.lucene.util.SloppyMath;
 
@@ -21,12 +24,41 @@ public class HelperFunctions {
         frame.setLocation((int) x, (int) y);
     }
 
-    public static Color getColorFromHex(String hex) {
-        int r = Integer.valueOf(hex.substring(1, 3), 16);
-        int g = Integer.valueOf(hex.substring(3, 5), 16);
-        int b = Integer.valueOf(hex.substring(5, 7), 16);
+    public static Icon resizeIcon(Icon icon, int newWidth, int newHeight) {
+        if (!(icon instanceof ImageIcon)) {
+            throw new IllegalArgumentException("Icon must be an ImageIcon");
+        }
+        if (newWidth <= 0 || newHeight <= 0) {
+            throw new IllegalArgumentException("Width and height must be positive");
+        }
 
-        return new Color(r, g, b);
+        Image image = ((ImageIcon) icon).getImage();
+        Image scaledImage = image.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
+        return new ImageIcon(scaledImage);
+    }
+
+    public static Color getColorFromHex(String hexColor) {
+        // Remove the '#' if present
+        if (hexColor.startsWith("#")) {
+            hexColor = hexColor.substring(1);
+        }
+
+        // Ensure the hex string is valid (6 characters for RGB)
+        if (hexColor.length() != 6) {
+            throw new IllegalArgumentException("Invalid hex color code. Must be in format #RRGGBB or RRGGBB");
+        }
+
+        try {
+            // Parse the hex values for red, green, and blue
+            int red = Integer.parseInt(hexColor.substring(0, 2), 16);
+            int green = Integer.parseInt(hexColor.substring(2, 4), 16);
+            int blue = Integer.parseInt(hexColor.substring(4, 6), 16);
+
+            // Return the Color object
+            return new Color(red, green, blue);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid hex color code. Must contain valid hexadecimal values");
+        }
     }
 
     public static void addTab(JTabbedPane tabbedPane, Component controller, String tabName) {

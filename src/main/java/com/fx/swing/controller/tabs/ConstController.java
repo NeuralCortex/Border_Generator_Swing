@@ -23,6 +23,7 @@ import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
+import java.awt.geom.Point2D;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.DataOutputStream;
@@ -30,7 +31,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.ResourceBundle;
 import javax.swing.BorderFactory;
@@ -65,8 +68,8 @@ import org.locationtech.jts.geom.Coordinate;
 public class ConstController extends JPanel implements PopulateInterface, ActionListener, ItemListener {
 
     private static final Logger _log = LogManager.getLogger(ConstController.class);
-    private MainController mainController;
-    private ResourceBundle bundle;
+    private final MainController mainController;
+    private final ResourceBundle bundle;
 
     private final double lon = 10.671745101119196;
     private final double lat = 50.661742127393836;
@@ -85,10 +88,7 @@ public class ConstController extends JPanel implements PopulateInterface, Action
     private final JXMapViewer mapViewer = new JXMapViewer();
     private final List<Painter<JXMapViewer>> painters = new ArrayList<>();
     private CircleSelectionAdapter cirlceSelectionAdapter;
-    private List<PositionPOJO> posListBackup;
-    private List<PositionPOJO> posListReducedBackup;
     private Line2D lineFrom;
-    private Line2D lineTo;
 
     public ConstController(MainController mainController) {
         this.mainController = mainController;
@@ -161,8 +161,6 @@ public class ConstController extends JPanel implements PopulateInterface, Action
         mapViewer.setZoom(14);
         mapViewer.setAddressLocation(city);
 
-        initPainter();
-
         // Add interactions
         MouseInputListener mil = new PanMouseInputListener(mapViewer);
         mapViewer.addMouseListener(mil);
@@ -173,7 +171,9 @@ public class ConstController extends JPanel implements PopulateInterface, Action
 
         MousePositionListener mousePositionListener = new MousePositionListener(mapViewer);
         mousePositionListener.setGeoPosListener((GeoPosition geoPosition) -> {
-            mainController.getLabelStatus().setText(bundle.getString("col.lon") + ": " + geoPosition.getLongitude() + " " + bundle.getString("col.lat") + ": " + geoPosition.getLatitude());
+            String lat = String.format("%.5f", geoPosition.getLatitude());
+            String lon = String.format("%.5f", geoPosition.getLongitude());
+            mainController.getLabelStatus().setText(bundle.getString("col.lat") + ": " + lat + " " + bundle.getString("col.lon") + ": " + lon);
         });
         mapViewer.addMouseMotionListener(mousePositionListener);
 
@@ -183,6 +183,7 @@ public class ConstController extends JPanel implements PopulateInterface, Action
 
         add(panel, BorderLayout.CENTER);
 
+        initPainter();
     }
 
     private void openBorderFile(ResourceBundle bundle, boolean from) {
@@ -205,48 +206,34 @@ public class ConstController extends JPanel implements PopulateInterface, Action
             if (borderFile != null) {
 
                 List<PositionPOJO> posList = new ArrayList<>();
-                List<PositionPOJO> posListReduced = new ArrayList<>();
 
-                try {
-                    BufferedReader bufferedReader = new BufferedReader(new FileReader(borderFile));
+                try (BufferedReader bufferedReader = new BufferedReader(new FileReader(borderFile))) {
+                    String line;
                     int idx = 0;
-                    while (bufferedReader.ready()) {
-                        String line[] = bufferedReader.readLine().split(";");
-                        double lonCsv = Double.valueOf(line[0]);
-                        double latCsv = Double.valueOf(line[1]);
+                    while ((line = bufferedReader.readLine()) != null) {
+                        String[] parts = line.split(";", 2); // Limit split to 2 parts
+                        double lonCsv = Double.parseDouble(parts[0].trim());
+                        double latCsv = Double.parseDouble(parts[1].trim());
                         posList.add(new PositionPOJO(lonCsv, latCsv, idx++));
                     }
-                    bufferedReader.close();
-                } catch (Exception ex) {
-                    _log.error(ex.getMessage());
+                } catch (IOException | NumberFormatException ex) {
+                    _log.error(ex.getLocalizedMessage());
                 }
 
                 if (from) {
-                    posListBackup = posList;
-
-                    painters.clear();
                     lbFrom.setText(bundle.getString("btn.from") + ": " + borderFile.getName());
-
-                    for (int i = 0; i < posList.size(); i++) {
-                        if (i % 21 == 0 || i % 22 == 0) {
-                            posListReduced.add(posList.get(i));
-                        }
-                    }
-
-                    posListReducedBackup = posListReduced;
-
-                    BorderLinePainter borderLinePainter = new BorderLinePainter(posList, /*MapController.genRandomColor()*/ Color.BLACK, BorderLinePainter.BORDER_TYPE.FROM);
+                    BorderLinePainter borderLinePainter = new BorderLinePainter(posList, Color.BLACK, BorderLinePainter.BORDER_TYPE.FROM);
                     painters.add(borderLinePainter);
                 } else {
                     lbTo.setText(bundle.getString("btn.to") + ": " + borderFile.getName());
-                    for (int i = 0; i < painters.size(); i++) {
-                        Painter painter = painters.get(i);
-                        if (painter instanceof BorderLinePainter) {
-                            BorderLinePainter borderLinePainter = (BorderLinePainter) painter;
-                            if (borderLinePainter.getBorder_type() == BorderLinePainter.BORDER_TYPE.TO) {
-                                painters.remove(painter);
+                    // Remove TO painters safely
+                    Iterator<Painter<JXMapViewer>> iterator = painters.iterator();
+                    while (iterator.hasNext()) {
+                        Painter painter = iterator.next();
+                        if (painter instanceof BorderLinePainter blp) {
+                            if (blp.getBorder_type() == BorderLinePainter.BORDER_TYPE.TO) {
+                                iterator.remove();
                             }
-
                         }
                     }
                     BorderLinePainter borderLinePainter = new BorderLinePainter(posList, Color.BLACK, BorderLinePainter.BORDER_TYPE.TO);
@@ -263,112 +250,82 @@ public class ConstController extends JPanel implements PopulateInterface, Action
     }
 
     private void initPainter() {
-        cirlceSelectionAdapter = new CircleSelectionAdapter(mapViewer, painters);
-        cirlceSelectionAdapter.setCirlceSelectionAdapterListener(new CircleSelectionAdapter.CirlceSelectionAdapterListener() {
-            @Override
-            public void drawCircle(GeoPosition geoPosition, BorderLinePainter.BORDER_TYPE border_type) {
-                for (int i = 0; i < painters.size(); i++) {
-                    Painter painter = painters.get(i);
-                    if (painter instanceof CirclePainter) {
-                        painters.remove(painter);
-                    }
-                }
+        CirclePainter circlePainter = new CirclePainter();
+        circlePainter.setCirclePainterListener((Ellipse2D ellipse2D) -> {
+            // Reset previous selections first
+            resetPreviousSelections();
 
-                CirclePainter circlePainter = new CirclePainter(geoPosition);
-
-                circlePainter.setCirclePainterListener((Ellipse2D ellipse2D) -> {
-                    for (int i = 0; i < painters.size(); i++) {
-                        Painter painter = painters.get(i);
-                        if (painter instanceof BorderLinePainter) {
-                            BorderLinePainter borderLinePainter = (BorderLinePainter) painter;
-                            if (borderLinePainter.getLineList() != null) {
-
-                                //Neu
-                                if (borderLinePainter.getBorder_type() == BorderLinePainter.BORDER_TYPE.FROM) {
-                                    for (LinePOJO line : borderLinePainter.getLineList()) {
-
-                                        if (ellipse2D.contains(line.getMiddle())) {
-                                            borderLinePainter.setSelLine(line.getLine2D());
-                                            lineFrom = line.getLine2D();
-                                            borderLinePainter.setSelColor(Color.RED);
-                                            cirlceSelectionAdapter.setIdx(line.getIdx());
-                                        }
-                                    }
-                                }
-
-                                if (borderLinePainter.getBorder_type() == BorderLinePainter.BORDER_TYPE.TO) {
-                                    if (lineFrom != null) {
-                                        boolean isInter = true;
-                                        for (LinePOJO line : borderLinePainter.getLineList()) {
-                                            if (lineFrom.intersectsLine(line.getLine2D())) {
-                                                borderLinePainter.setSelLine(line.getLine2D());
-                                                borderLinePainter.setSelColor(Color.BLUE);
-                                                isInter = true;
-                                                lineTo = line.getLine2D();
-                                                break;
-                                            } else {
-                                                isInter = false;
-                                            }
-                                        }
-                                        if (!isInter) {
-                                            borderLinePainter.setSelLine(null);
-                                        }
-                                    }
-                                }
-
+            // First pass: Find FROM lines by middle point containment
+            for (int i = 0; i < painters.size(); i++) {
+                Painter painter = painters.get(i);
+                if (painter instanceof BorderLinePainter borderLinePainter) {
+                    if (borderLinePainter.getLineList() != null && borderLinePainter.getBorder_type() == BorderLinePainter.BORDER_TYPE.FROM) {
+                        for (LinePOJO line : borderLinePainter.getLineList()) {
+                            Point2D middlePoint = line.getMiddle();
+                            if (ellipse2D.contains(middlePoint.getX(), middlePoint.getY())) {
+                                // Select FROM line (RED)
+                                borderLinePainter.setSelLine(line.getLine2D());
+                                borderLinePainter.setSelColor(Color.RED);
+                                lineFrom = line.getLine2D();
+                                cirlceSelectionAdapter.setIdx(line.getIdx());
+                                break; // Only select one FROM line
                             }
                         }
                     }
-                });
-                painters.add(circlePainter);
-
-                CompoundPainter<JXMapViewer> painter = new CompoundPainter<>(painters);
-                mapViewer.setOverlayPainter(painter);
-                mapViewer.repaint();
+                }
             }
 
-            @Override
-            public void drawStartLine1(int start) {
-                drawStart(start, true);
-            }
-
-            @Override
-            public void drawStartLine2() {
-                drawEnd(true);
-
-                for (int i = painters.size() - 1; i >= 0; i--) {
+            // Second pass: Find TO lines that intersect with selected lineFrom
+            if (lineFrom != null) {
+                for (int i = 0; i < painters.size(); i++) {
                     Painter painter = painters.get(i);
-                    if (painter instanceof LinePainter) {
-                        LinePainter linePainter = (LinePainter) painter;
-                        if (linePainter.getColor() == Color.BLUE) {
-                            painters.remove(painter);
+                    if (painter instanceof BorderLinePainter borderLinePainter) {
+                        if (borderLinePainter.getLineList() != null && borderLinePainter.getBorder_type() == BorderLinePainter.BORDER_TYPE.TO) {
+                            for (LinePOJO line : borderLinePainter.getLineList()) {
+                                if (lineFrom.intersectsLine(line.getLine2D())) {
+                                    // Select TO line that intersects (BLUE)
+                                    borderLinePainter.setSelLine(line.getLine2D());
+                                    borderLinePainter.setSelColor(Color.BLUE);
+                                    borderLinePainter.setIntersection(true);
+                                    break; // Only select one intersecting TO line
+                                } else {
+                                    borderLinePainter.setIntersection(false);
+                                }
+                            }
                         }
+                    }
+                }
+            }
+        });
+
+        painters.add(circlePainter);
+
+        cirlceSelectionAdapter = new CircleSelectionAdapter(mapViewer, painters, bundle);
+        cirlceSelectionAdapter.setCircleSelectionAdapterListener(new CircleSelectionAdapter.CircleSelectionAdapterListener() {
+            @Override
+            public void drawCircle(GeoPosition geoPosition, BorderLinePainter.BORDER_TYPE border_type) {
+
+                for (int i = 0; i < painters.size(); i++) {
+                    Painter painter = painters.get(i);
+                    if (painter instanceof CirclePainter circlePainter) {
+                        circlePainter.setGeoPosition(geoPosition);
+                        mapViewer.repaint();
                     }
                 }
             }
 
             @Override
-            public void drawEndLine1(int start) {
-                drawStart(start, false);
+            public void showErrorDlg() {
+                //TODO Error-Dlg
             }
 
             @Override
-            public void drawEndLine2() {
-                drawEnd(false);
-
-                for (int i = painters.size() - 1; i >= 0; i--) {
-                    Painter painter = painters.get(i);
-                    if (painter instanceof LinePainter) {
-                        LinePainter linePainter = (LinePainter) painter;
-                        if (linePainter.getColor() == Color.BLUE) {
-                            painters.remove(painter);
-                        }
-                    }
-                }
+            public void selectIntersection(boolean isStart, int idx) throws Exception {
+                drawIntersection(isStart, idx);
             }
 
             @Override
-            public void drawFullResBorder() {
+            public void cutBorder() throws Exception {
                 int start = 0;
                 int end = 0;
 
@@ -380,59 +337,36 @@ public class ConstController extends JPanel implements PopulateInterface, Action
                 for (int i = 0; i < painters.size(); i++) {
                     Painter painter = painters.get(i);
 
-                    if (painter instanceof LinePainter) {
-                        LinePainter linePainter = (LinePainter) painter;
-                        switch (linePainter.getLine_pos()) {
-                            case START:
-                                if (linePainter.getBorder_type() == BorderLinePainter.BORDER_TYPE.FROM) {
-                                    start = linePainter.getIdx();
-                                }
-                                break;
-                            case END:
-                                if (linePainter.getBorder_type() == BorderLinePainter.BORDER_TYPE.FROM) {
-                                    end = linePainter.getIdx();
-                                }
-                                break;
-                            default:
-                                throw new AssertionError();
-                        }
-                    }
-
-                    if (painter instanceof IntersectionPainter) {
-                        IntersectionPainter intersectionPainter = (IntersectionPainter) painter;
+                    if (painter instanceof IntersectionPainter intersectionPainter) {
                         switch (intersectionPainter.getLine_pos()) {
-                            case START:
+                            case START -> {
                                 geoPositionStart = intersectionPainter.getGeoPosition();
-                                break;
-                            case END:
+                                start = intersectionPainter.getIdx();
+                            }
+                            case END -> {
                                 geoPositionEnd = intersectionPainter.getGeoPosition();
-                                break;
-                            default:
+                                end = intersectionPainter.getIdx();
+                            }
+                            default ->
                                 throw new AssertionError();
                         }
                     }
 
-                    if (painter instanceof BorderLinePainter) {
-                        BorderLinePainter borderLinePainter = (BorderLinePainter) painter;
+                    if (painter instanceof BorderLinePainter borderLinePainter) {
                         switch (borderLinePainter.getBorder_type()) {
-                            case FROM:
+                            case FROM ->
                                 posList = borderLinePainter.getBorder();
-                                break;
-                            default:
-                            //throw new AssertionError();
+                            case TO -> {
+                            }
+                            default -> {
+                            }
                         }
+                        //throw new AssertionError();
                     }
                 }
 
                 for (int i = painters.size() - 1; i >= 0; i--) {
-                    Painter painter = painters.get(i);
-                    if (painter instanceof LinePainter) {
-                        painters.remove(i);
-                    }
-                    if (painter instanceof IntersectionPainter) {
-                        painters.remove(i);
-                    }
-                    if (painter instanceof BorderLinePainter) {
+                    if (!(painters.get(i) instanceof CirclePainter)) {
                         painters.remove(i);
                     }
                 }
@@ -447,12 +381,6 @@ public class ConstController extends JPanel implements PopulateInterface, Action
                 btnCSV.setEnabled(true);
                 btnHCM.setEnabled(true);
             }
-
-            @Override
-            public void showErrorDlg() {
-                //TODO Error-Dlg
-            }
-
         });
 
         cbInvert.setSelected(false);
@@ -462,39 +390,26 @@ public class ConstController extends JPanel implements PopulateInterface, Action
         mapViewer.setFocusable(true);
         mapViewer.addMouseListener(cirlceSelectionAdapter);
         mapViewer.addMouseMotionListener(cirlceSelectionAdapter);
-        mapViewer.addKeyListener(cirlceSelectionAdapter);
+
+        // Update map
+        CompoundPainter<JXMapViewer> painter = new CompoundPainter<>(painters);
+        mapViewer.setOverlayPainter(painter);
+        mapViewer.repaint();
+
     }
 
-    private void drawStart(int start, boolean isStart) {
-        List<PositionPOJO> posList;
-
-        for (int i = painters.size() - 1; i >= 0; i--) {
-            Painter painter = painters.get(i);
-            if (painter instanceof BorderLinePainter) {
-                BorderLinePainter borderLinePainter = (BorderLinePainter) painter;
-                switch (borderLinePainter.getBorder_type()) {
-                    case FROM:
-                        posList = borderLinePainter.getBorder();
-
-                        LinePainter linePainter;
-                        if (isStart) {
-                            linePainter = new LinePainter(posList, start, LinePainter.LINE_POS.START, Color.RED, BorderLinePainter.BORDER_TYPE.FROM);
-                        } else {
-                            linePainter = new LinePainter(posList, start, LinePainter.LINE_POS.END, Color.RED, BorderLinePainter.BORDER_TYPE.FROM);
-                        }
-
-                        painters.add(linePainter);
-                        break;
-                    default:
-                    //throw new AssertionError();
-                }
+    private void resetPreviousSelections() {
+        for (Painter painter : painters) {
+            if (painter instanceof BorderLinePainter borderLinePainter) {
+                borderLinePainter.setSelLine(null);
+                borderLinePainter.setSelColor(null); // or default color
             }
         }
+        lineFrom = null;
+        cirlceSelectionAdapter.setIdx(-1); // or appropriate default
     }
 
-    private void drawEnd(boolean isStart) {
-        List<PositionPOJO> posList;
-
+    private void drawIntersection(boolean isStart, int idx) {
         GeoPosition geoPosition1 = null;
         GeoPosition geoPosition2 = null;
         GeoPosition geoPosition3 = null;
@@ -502,31 +417,18 @@ public class ConstController extends JPanel implements PopulateInterface, Action
 
         for (int i = painters.size() - 1; i >= 0; i--) {
             Painter painter = painters.get(i);
-            if (painter instanceof BorderLinePainter) {
-                BorderLinePainter borderLinePainter = (BorderLinePainter) painter;
+            if (painter instanceof BorderLinePainter borderLinePainter) {
                 switch (borderLinePainter.getBorder_type()) {
-                    case FROM:
+                    case FROM -> {
                         geoPosition1 = borderLinePainter.getGeoPositionLine1();
                         geoPosition2 = borderLinePainter.getGeoPositionLine2();
-                        break;
-                    case TO:
+                    }
+                    case TO -> {
                         geoPosition3 = borderLinePainter.getGeoPositionLine1();
                         geoPosition4 = borderLinePainter.getGeoPositionLine2();
-                        posList = borderLinePainter.getBorder();
-
-                        LinePainter linePainter;
-                        if (isStart) {
-                            linePainter = new LinePainter(posList, LinePainter.LINE_POS.START, Color.BLUE, BorderLinePainter.BORDER_TYPE.TO);
-                            //System.out.println(linePainter);
-                        } else {
-                            linePainter = new LinePainter(posList, LinePainter.LINE_POS.END, Color.BLUE, BorderLinePainter.BORDER_TYPE.TO);
-                            //System.out.println(linePainter);
-                        }
-                        painters.add(linePainter);
-
-                        break;
-                    default:
-                    //throw new AssertionError();
+                    }
+                    default ->
+                        throw new AssertionError();
                 }
             }
         }
@@ -540,12 +442,16 @@ public class ConstController extends JPanel implements PopulateInterface, Action
 
         IntersectionPainter intersectionPainter;
         if (isStart) {
-            intersectionPainter = new IntersectionPainter(new GeoPosition(inter1.getY(), inter1.getX()), LinePainter.LINE_POS.START);
+            intersectionPainter = new IntersectionPainter(new GeoPosition(inter1.getY(), inter1.getX()), LinePainter.LINE_POS.START, idx);
         } else {
-            intersectionPainter = new IntersectionPainter(new GeoPosition(inter1.getY(), inter1.getX()), LinePainter.LINE_POS.END);
+            intersectionPainter = new IntersectionPainter(new GeoPosition(inter1.getY(), inter1.getX()), LinePainter.LINE_POS.END, idx);
         }
 
         painters.add(intersectionPainter);
+
+        CompoundPainter<JXMapViewer> painter = new CompoundPainter<>(painters);
+        mapViewer.setOverlayPainter(painter);
+        mapViewer.repaint();
     }
 
     private void openCsvSaveDialog(ResourceBundle bundle) {
@@ -568,9 +474,8 @@ public class ConstController extends JPanel implements PopulateInterface, Action
                 try {
                     for (int i = 0; i < painters.size(); i++) {
                         Painter painter = painters.get(i);
-                        if (painter instanceof SelectionLinePainter) {
+                        if (painter instanceof SelectionLinePainter selectionLinePainter) {
 
-                            SelectionLinePainter selectionLinePainter = (SelectionLinePainter) painter;
                             List<PositionPOJO> list = selectionLinePainter.getFullBorder();
 
                             BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(borderFile));
@@ -590,8 +495,7 @@ public class ConstController extends JPanel implements PopulateInterface, Action
     private void openHcmSaveDialog(ResourceBundle bundle) {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setMultiSelectionEnabled(false);
-        
-       
+
         String borderDir = Globals.HCM_PATH;
 
         File dir = new File(Globals.HCM_PATH);
@@ -607,9 +511,8 @@ public class ConstController extends JPanel implements PopulateInterface, Action
                 try {
                     for (int i = 0; i < painters.size(); i++) {
                         Painter painter = painters.get(i);
-                        if (painter instanceof SelectionLinePainter) {
+                        if (painter instanceof SelectionLinePainter selectionLinePainter) {
 
-                            SelectionLinePainter selectionLinePainter = (SelectionLinePainter) painter;
                             List<PositionPOJO> list = selectionLinePainter.getFullBorder();
 
                             DataOutputStream dataOutputStream = new DataOutputStream(new FileOutputStream(borderFile));
@@ -692,16 +595,20 @@ public class ConstController extends JPanel implements PopulateInterface, Action
     private void resetAll() {
         cbInvert.setSelected(false);
 
-        painters.clear();
-
-        CompoundPainter<JXMapViewer> painter = new CompoundPainter<>(painters);
-        mapViewer.setOverlayPainter(painter);
-        mapViewer.repaint();
-
         btnCSV.setEnabled(false);
         btnHCM.setEnabled(false);
 
         lbFrom.setText("");
         lbTo.setText("");
+
+        for (int i = painters.size() - 1; i >= 0; i--) {
+            if (!(painters.get(i) instanceof CirclePainter)) {
+                painters.remove(i);
+            }
+        }
+
+        CompoundPainter<JXMapViewer> painter = new CompoundPainter<>(painters);
+        mapViewer.setOverlayPainter(painter);
+        mapViewer.repaint();
     }
 }

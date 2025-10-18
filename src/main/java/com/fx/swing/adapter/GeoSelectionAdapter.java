@@ -1,5 +1,7 @@
 package com.fx.swing.adapter;
 
+import com.fx.swing.Globals;
+import com.fx.swing.tools.HelperFunctions;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
@@ -9,6 +11,7 @@ import java.awt.event.MouseEvent;
 import java.io.File;
 import java.util.List;
 import javax.imageio.ImageIO;
+import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
@@ -47,7 +50,7 @@ public class GeoSelectionAdapter extends MouseAdapter implements ActionListener 
         menuItemPos.addActionListener(this);
 
         try {
-            ImageIcon iconAdd = new ImageIcon(ImageIO.read(new File(System.getProperty("user.dir") + "/images/plus.png")));
+            Icon iconAdd = HelperFunctions.resizeIcon(new ImageIcon(GeoSelectionAdapter.class.getResource(Globals.PNG_PLUS)),16,16);
             menuItemPos.setIcon(iconAdd);
         } catch (Exception ex) {
             _log.error(ex.getMessage());

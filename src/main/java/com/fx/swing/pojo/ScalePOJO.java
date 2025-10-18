@@ -54,4 +54,8 @@ public class ScalePOJO {
     public void removePropertyChangeListener(PropertyChangeListener listener) {
         support.removePropertyChangeListener(listener);
     }
+    
+    public PropertyChangeListener[] getPropertyChangeListeners(){
+        return support.getPropertyChangeListeners();
+    }
 }

@@ -39,8 +39,9 @@ public class MainApp {
             _log.error(ex.getMessage());
         }
 
-        JFrame frame = new JFrame(bundle.getString("app.name") + " - " + bundle.getString("app.version"));
-        frame.setIconImage(new ImageIcon(Globals.APP_LOGO_PATH).getImage());
+        //Version is null in NetBeans not in the packaged JAR
+        JFrame frame = new JFrame(bundle.getString("app.name") + " - " + MainApp.class.getPackage().getImplementationVersion());
+        frame.setIconImage(new ImageIcon(MainApp.class.getResource(Globals.APP_LOGO_PATH)).getImage());
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(Globals.WIDTH, Globals.HEIGHT);
 

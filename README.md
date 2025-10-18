@@ -1,45 +1,42 @@
-# Border Generator Swing 1.0.0
+# Border Generator Swing 1.1.0
 
-![image](https://github.com/NeuralCortex/Border_Generator_Swing/blob/main/app.png)
+![Application Screenshot](https://github.com/NeuralCortex/Border_Generator_Swing/blob/main/app.png)
 
-## How the program works
+## Overview
 
-The Border Generator is a Swing project that allows you to create border lines in a standardized way for the first time.</br>
-The boundary data can be generated worldwide using OpenStreetMap and saved in CSV format.</br>
+Border Generator Swing is a Java-based application built with the Swing framework, designed to create standardized border lines. It enables users to generate boundary data globally using OpenStreetMap and export it in CSV format.
 
-## A notice
+## Requirements
 
-An existing internet connection is mandatory.</br>
-Unlike the JavaFX project, the program can be started by double-clicking the JAR file.</br>
-All you need to do is have a JRE or JDK version 24 installed; Swing is included there as standard.
+- An active internet connection is required.
+- The application can be launched by double-clicking the JAR file.
+- Java Runtime Environment (JRE) or Java Development Kit (JDK) version 24 is required, as Swing is included by default.
 
-## Work steps
+## Usage Instructions
 
-### First tab
+### Tab 1: Generating Boundary Data
 
-1. Right click on the country whose border you want to use. (State or Country can now be selected in the GEO Information table).
-2. Create the desired X-kilometer lines (currently 0 to 100KM is supported).
-3. Save the boundary data in CSV format (the data will be placed in the CSV directory).
+1. Right-click on the map to select a country or state from the GEO Information table.
+2. Specify the desired X-kilometer lines by setting the number and stepping.
+3. Save the generated boundary data as a CSV file (saved in the `CSV` directory).
 
-### Second tab
+### Tab 2: Processing Boundary Intersections
 
-1. Import of the first boundary line (e.g.: Germany.006.csv).
-2. Import of the second boundary line (e.g.: Austria.000.csv).
-3. Find the first intersection of the boundary (indicated by the red and blue lines) and press 1 on the keyboard.
-4. Find the second intersection of the boundary and press 2 on the keyboard.
-5. Finally, press 3 on the keyboard (The border will be clipped to the border section).
-6. Export of the border section as a CSV file.
-7. The process is now complete.
+1. Import the first boundary line (e.g., `France.040.csv`).
+2. Import the second boundary line (e.g., `Spain.000.csv`).
+3. Identify the first intersection point (marked by red and blue lines) and select it using the context menu.
+4. Repeat for the second intersection point.
+5. Use the context menu to trim the border to the selected section.
+6. Export the trimmed border section as a CSV file.
+7. The process is complete.
 
-### Third tab
+### Tab 3: Verifying Boundaries
 
-This tab is for checking the constructed boundaries. CSV and HCM format files can be displayed simultaneously.</br>
-By right-clicking on the map, 2 points can be specified whose distance is calculated.
+- This tab allows you to visualize constructed boundaries.
+- Supports simultaneous display of CSV and HCM format files.
+- Right-click on the map to select two points and calculate the distance between them.
 
-## Technology used
+## Technologies Used
 
-This Swing project was built with the Apache NetBeans 25 IDE [NetBeans 25](https://netbeans.apache.org/).
-
-The following frameworks should be installed:
-
-- JAVA SDK [JAVA 24](https://www.oracle.com/de/java/technologies/downloads/#jdk24-windows)
+- **IDE**: [Apache NetBeans 27](https://netbeans.apache.org/)
+- **Java SDK**: [Java 24](https://www.oracle.com/java/technologies/downloads/#jdk24-windows)

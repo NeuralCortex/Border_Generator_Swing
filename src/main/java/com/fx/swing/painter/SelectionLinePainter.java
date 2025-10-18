@@ -87,7 +87,7 @@ public class SelectionLinePainter implements Painter<JXMapViewer> {
             Point2D pt = map.getTileFactory().geoToPixel(geoPositionEnd, map.getZoom());
             path.moveTo(pt.getX(), pt.getY());
 
-            for (int i = start - 1; i >= 0; i--) {
+            for (int i = start; i >= 0; i--) {
                 PositionPOJO pair = borderFull.get(i);
                 GeoPosition geoPosition = new GeoPosition(pair.getLat(), pair.getLon());
                 pt = map.getTileFactory().geoToPixel(geoPosition, map.getZoom());

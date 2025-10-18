@@ -33,10 +33,12 @@ public class ScaleTableModel extends AbstractTableModel {
         ScalePOJO scalePOJO = list.get(rowIndex);
         switch (columnIndex) {
             case 0:
-                return scalePOJO.isActive();
+                return rowIndex;
             case 1:
-                return scalePOJO.getDistance();
+                return scalePOJO.isActive();
             case 2:
+                return scalePOJO.getDistance();
+            case 3:
                 return scalePOJO.getColor();
             default:
                 throw new AssertionError();
@@ -47,7 +49,7 @@ public class ScaleTableModel extends AbstractTableModel {
     public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
         ScalePOJO scalePOJO = list.get(rowIndex);
         switch (columnIndex) {
-            case 0:
+            case 1:
                 scalePOJO.setActive((Boolean) aValue);
                 break;
             default:
@@ -57,7 +59,7 @@ public class ScaleTableModel extends AbstractTableModel {
 
     @Override
     public boolean isCellEditable(int rowIndex, int columnIndex) {
-        return columnIndex == 0;
+        return columnIndex == 1;
     }
 
     @Override

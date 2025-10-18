@@ -28,6 +28,7 @@ import com.mapbox.geojson.Polygon;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dialog;
+import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.net.URL;
@@ -42,8 +43,11 @@ import java.util.ResourceBundle;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JSeparator;
 import javax.swing.JTable;
+import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.event.MouseInputListener;
 import org.jxmapviewer.JXMapViewer;
@@ -72,6 +76,10 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
     private JButton btnReset;
     private JButton btnCsvExport;
     private JButton btnHcmExport;
+    private JButton btnGenScaleList;
+
+    private JTextField tfNumberBorders;
+    private JTextField tfStepSize;
 
     private JTable tableInfo;
     private JTable tableScale;
@@ -79,6 +87,7 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
     private final JXMapViewer mapViewer = new JXMapViewer();
     private final List<Painter<JXMapViewer>> painters = new ArrayList<>();
     private final HashMap<Integer, List<PositionPOJO>> mapBorder = new HashMap<>();
+    private List<ScalePOJO> list;
     private HashMap<Double, List<PositionPOJO>> mapLoad = new HashMap<>();
     private InfoPOJO infoPOJO;
     private GeoPosition marker;
@@ -95,7 +104,20 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
 
         btnReset = new JButton(bundle.getString("btn.reset"));
         btnReset.addActionListener(this);
-        JPanel panelTop = LayoutFunctions.createOptionPanelX(Globals.COLOR_BLUE, new JLabel(""), btnReset);
+
+        tfNumberBorders = new JTextField();
+        tfNumberBorders.setMaximumSize(new Dimension(20, btnReset.getPreferredSize().height));
+        tfNumberBorders.setText("20");
+
+        tfStepSize = new JTextField();
+        tfStepSize.setMaximumSize(new Dimension(20, btnReset.getPreferredSize().height));
+        tfStepSize.setText("15");
+
+        btnGenScaleList = new JButton(bundle.getString("btn.list"));
+        btnGenScaleList.addActionListener(this);
+
+        JSeparator separator = new JSeparator(JSeparator.VERTICAL);
+        JPanel panelTop = LayoutFunctions.createOptionPanelX(Globals.COLOR_BLUE, new JLabel(""), new JLabel(bundle.getString("lb.number.border")), tfNumberBorders, new JLabel(bundle.getString("lb.stepsize")), tfStepSize, btnGenScaleList, separator, btnReset);
         add(panelTop, BorderLayout.NORTH);
 
         JPanel panelInfo = LayoutFunctions.createOptionPanelX(Globals.COLOR_BLUE, new JLabel(bundle.getString("lb.geoinfo")));
@@ -140,15 +162,18 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
         JPanel panelScale = LayoutFunctions.createOptionPanelX(Globals.COLOR_BLUE, new JLabel(bundle.getString("lb.scale")), btnCsvExport, btnHcmExport);
 
         headerList = new ArrayList<>();
+        headerList.add(new TableHeaderPOJO(bundle.getString("lb.idx"), Integer.class));
         headerList.add(new TableHeaderPOJO(bundle.getString("lb.active"), Boolean.class));
-        headerList.add(new TableHeaderPOJO(bundle.getString("lb.length"), Integer.class));
+        headerList.add(new TableHeaderPOJO(bundle.getString("lb.dist"), Integer.class));
         headerList.add(new TableHeaderPOJO(bundle.getString("lb.color"), Color.class));
+        //anzahl der skalierten grenzen, schrittweite 
 
         ScaleTableModel scaleTableModel = new ScaleTableModel(headerList, new ArrayList<>());
         tableScale = new JTable(scaleTableModel);
         tableScale.setDefaultRenderer(Color.class, new ColorRenderer());
 
-        JPanel panelRight = LayoutFunctions.createVerticalGridbag(panelInfo, tableInfo, panelScale, tableScale);
+        double heightPercentages[] = {10.0, 15.0, 10.0, 85.0};
+        JPanel panelRight = LayoutFunctions.createVerticalGridbag(heightPercentages, panelInfo, tableInfo, panelScale, tableScale);
         panelRight.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
         add(panelRight, BorderLayout.EAST);
 
@@ -189,7 +214,9 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
 
         MousePositionListener mousePositionListener = new MousePositionListener(mapViewer);
         mousePositionListener.setGeoPosListener((GeoPosition geoPosition) -> {
-            mainController.getLabelStatus().setText(bundle.getString("col.lon") + ": " + geoPosition.getLongitude() + " " + bundle.getString("col.lat") + ": " + geoPosition.getLatitude());
+            String lat = String.format("%.5f", geoPosition.getLatitude());
+            String lon = String.format("%.5f", geoPosition.getLongitude());
+            mainController.getLabelStatus().setText(bundle.getString("col.lat") + ": " + lat + " " + bundle.getString("col.lon") + ": " + lon);
         });
         mapViewer.addMouseMotionListener(mousePositionListener);
 
@@ -252,6 +279,7 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
                         idx++;
                     }
                 }
+
                 int idx = 0;
 
                 for (Integer key : mapBorder.keySet()) {
@@ -263,8 +291,7 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
                     }
                 }
 
-                initScaleTable(mapBorder.get(idx));
-
+                list = showFirstBorder(mapBorder.get(idx));
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
@@ -299,6 +326,86 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
 
         // Check if the point is inside the polygon
         return jtsPoint.within(polygon);
+    }
+
+    private List<ScalePOJO> showFirstBorder(List<PositionPOJO> border) {
+        painters.clear();
+
+        Color color = genRandomColor();
+        BorderPainter borderPainter = new BorderPainter(border, color);
+        painters.add(borderPainter);
+
+        List<ScalePOJO> listLocal = new ArrayList<>();
+        ScalePOJO scalePOJO = new ScalePOJO(true, 0, color, borderPainter);
+        scalePOJO.addPropertyChangeListener(e -> {
+            if (e.getPropertyName().equalsIgnoreCase("active")) {
+                boolean newValue = (Boolean) e.getNewValue();
+                scale(newValue, scalePOJO);
+            }
+        });
+        listLocal.add(scalePOJO);
+
+        ScaleTableModel model = (ScaleTableModel) tableScale.getModel();
+        model.setList(listLocal); 
+
+        // Single repaint after all changes
+        updateMapPainter();
+        return listLocal;
+    }
+
+    private void updateMapPainter() {
+        CompoundPainter<JXMapViewer> painter = new CompoundPainter<>(painters);
+        mapViewer.setOverlayPainter(painter);
+        mapViewer.repaint();
+    }
+
+    private void initScaleTable(List<ScalePOJO> listLocal, int number, int stepping) {
+        if (listLocal.isEmpty()) {
+            JOptionPane.showMessageDialog(mainController, "Select state or country first", "Information", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        
+         ScalePOJO first = listLocal.get(0);
+
+        if (!painters.isEmpty()) {
+            BorderPainter firstPainter=null;
+             ScaleTableModel scaleTableModel = (ScaleTableModel) tableScale.getModel();
+            for (int i = 0; i < scaleTableModel.getList().size(); i++) {
+                ScalePOJO data = scaleTableModel.getList().get(i);
+                if (data.getDistance() == 0) {
+                    firstPainter=data.getBorderPainter();
+                    first=data;
+                    break;
+                }
+            }
+            painters.clear();
+            if(first.isActive()){
+             painters.add(firstPainter);   
+            }
+        }
+       
+        list.clear();
+        list.add(first);
+
+        for (int i = stepping; i < number * stepping; i += stepping) {
+            Color color = genRandomColor();
+            list.add(new ScalePOJO(false, i, color, null)); // Painter created in scale() method
+        }
+
+        ScaleTableModel model = (ScaleTableModel) tableScale.getModel();
+        model.setList(list);
+
+        for (int i = 1; i < list.size(); i++) {
+            ScalePOJO scalePOJO = list.get(i);
+            scalePOJO.addPropertyChangeListener(e -> {
+                if (e.getPropertyName().equalsIgnoreCase("active")) {
+                    boolean newValue = (Boolean) e.getNewValue();
+                    scale(newValue, scalePOJO);
+                }
+            });
+        }
+
+        updateMapPainter();
     }
 
     private void initScaleTable(List<PositionPOJO> border) {
@@ -476,6 +583,23 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
             if (e.getSource() == btnReset) {
                 resetAll();
             }
+            if (e.getSource() == btnGenScaleList) {
+                genList();
+            }
+        }
+    }
+
+    private void genList() {
+        if (mapBorder != null && !mapBorder.isEmpty()) {
+            try {
+                int number = Integer.parseInt(tfNumberBorders.getText());
+                int stepping = Integer.parseInt(tfStepSize.getText());
+                initScaleTable(list, number, stepping);
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(mainController, "Incorrect entry for quantity or increment.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        } else {
+            JOptionPane.showMessageDialog(mainController, "Select state or country first", "Information", JOptionPane.INFORMATION_MESSAGE);
         }
     }
 

@@ -1,13 +1,15 @@
 package com.fx.swing.listener;
 
+import com.fx.swing.Globals;
+import com.fx.swing.adapter.GeoSelectionAdapter;
+import com.fx.swing.tools.HelperFunctions;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
-import java.io.File;
-import javax.imageio.ImageIO;
+import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
@@ -16,14 +18,12 @@ import org.apache.logging.log4j.Logger;
 import org.jxmapviewer.JXMapViewer;
 import org.jxmapviewer.viewer.GeoPosition;
 
-
 public class MousePopupListener implements MouseListener, ActionListener {
 
     private static final Logger _log = LogManager.getLogger(MousePopupListener.class);
     private final JXMapViewer mapViewer;
     private JPopupMenu popupMenu;
     private JMenuItem menuItemA;
-    private JMenuItem menuItemB;
     private GeoPosition geoPosition;
 
     public interface GeoClipboardListener {
@@ -40,28 +40,21 @@ public class MousePopupListener implements MouseListener, ActionListener {
     private void init() {
         popupMenu = new JPopupMenu();
         menuItemA = new JMenuItem("Set Point");
-        menuItemB = new JMenuItem("Point B");
 
         try {
-            ImageIcon iconAdd = new ImageIcon(ImageIO.read(new File(System.getProperty("user.dir") + "/images/plus.png")));
-
+            Icon iconAdd = HelperFunctions.resizeIcon(new ImageIcon(GeoSelectionAdapter.class.getResource(Globals.PNG_PLUS)), 16, 16);
             menuItemA.setIcon(iconAdd);
-            menuItemB.setIcon(iconAdd);
         } catch (Exception ex) {
             _log.error(ex.getMessage());
         }
 
         menuItemA.addActionListener(this);
-        menuItemB.addActionListener(this);
         popupMenu.add(menuItemA);
-        //popupMenu.add(menuItemB);
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
         if (e.getSource().equals(menuItemA)) {
-            geoClipboard.setPoint(geoPosition);
-        } else if (e.getSource().equals(menuItemB)) {
             geoClipboard.setPoint(geoPosition);
         }
     }

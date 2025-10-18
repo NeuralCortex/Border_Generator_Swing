@@ -100,7 +100,7 @@ public class ResultController extends JPanel implements PopulateInterface, Actio
         headerList.add(new TableHeaderPOJO(bundle.getString("lb.filename"), String.class));
         headerList.add(new TableHeaderPOJO(bundle.getString("lb.active"), Boolean.class));
         headerList.add(new TableHeaderPOJO(bundle.getString("lb.coord"), String.class));
-        headerList.add(new TableHeaderPOJO(bundle.getString("lb.length"), String.class));
+        headerList.add(new TableHeaderPOJO(bundle.getString("lb.len"), String.class));
         headerList.add(new TableHeaderPOJO(bundle.getString("lb.color"), Color.class));
 
         BorderTableModel borderTableModelCSV = new BorderTableModel(headerList, new ArrayList<>());
@@ -121,7 +121,8 @@ public class ResultController extends JPanel implements PopulateInterface, Actio
         tableHCM = new JTable(borderTableModelHCM);
         tableHCM.setDefaultRenderer(Color.class, new ColorRenderer());
 
-        JPanel panelRight = LayoutFunctions.createVerticalGridbag(panelCSV, tableCSV, panelHCM, tableHCM);
+        double heightPercentages[] = {10.0, 40.0, 10.0, 40.0};
+        JPanel panelRight = LayoutFunctions.createVerticalGridbag(heightPercentages, panelCSV, tableCSV, panelHCM, tableHCM);
         panelRight.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
         add(panelRight, BorderLayout.EAST);
 
@@ -155,22 +156,21 @@ public class ResultController extends JPanel implements PopulateInterface, Actio
 
         MousePositionListener mousePositionListener = new MousePositionListener(mapViewer);
         mousePositionListener.setGeoPosListener((GeoPosition geoPosition) -> {
-            mainController.getLabelStatus().setText(bundle.getString("col.lon") + ": " + geoPosition.getLongitude() + " " + bundle.getString("col.lat") + ": " + geoPosition.getLatitude());
+            String lat = String.format("%.5f", geoPosition.getLatitude());
+            String lon = String.format("%.5f", geoPosition.getLongitude());
+            mainController.getLabelStatus().setText(bundle.getString("col.lat") + ": " + lat + " " + bundle.getString("col.lon") + ": " + lon);
         });
         mapViewer.addMouseMotionListener(mousePositionListener);
 
         //Popup
         MousePopupListener mousePopupListener = new MousePopupListener(mapViewer);
         mousePopupListener.setGeoClipboard((GeoPosition geoPosition) -> {
+
             PosPainter posPainter = new PosPainter(geoPosition);
             painters.add(posPainter);
-            
-            CompoundPainter<JXMapViewer> painter = new CompoundPainter<>(painters);
-            mapViewer.setOverlayPainter(painter);
-            mapViewer.repaint();
-            
+
             drawLine();
-            
+
             deleteLine();
         });
         mapViewer.addMouseListener(mousePopupListener);
@@ -184,20 +184,40 @@ public class ResultController extends JPanel implements PopulateInterface, Actio
 
     private void drawLine() {
         List<GeoPosition> geoPositions = new ArrayList<>();
-        for (Painter painter : painters) {
-            if (painter instanceof PosPainter) {
-                PosPainter posPainter = (PosPainter) painter;
+        List<Painter<JXMapViewer>> posPainters = new ArrayList<>();
+
+        // Collect PosPainters and their GeoPositions
+        for (Painter<JXMapViewer> painter : painters) {
+            if (painter instanceof PosPainter posPainter) {
                 geoPositions.add(posPainter.getGeoPosition());
+                posPainters.add(posPainter);
             }
         }
-        if (geoPositions.size() == 2) {
-            LinePainter linePainter = new LinePainter(geoPositions.get(0), geoPositions.get(1));
-            painters.add(linePainter);
+        
+        painters.clear();
 
+        if (geoPositions.size() == 2) {
+            // Create LinePainter for the two positions
+            LinePainter linePainter = new LinePainter(geoPositions.get(0), geoPositions.get(1));
+
+            // Create a new list with LinePainter first, followed by PosPainters
+            painters.add(linePainter);
+            painters.addAll(posPainters);
+
+            // Set the CompoundPainter with the ordered painters
             CompoundPainter<JXMapViewer> painter = new CompoundPainter<>(painters);
             mapViewer.setOverlayPainter(painter);
             mapViewer.repaint();
         }
+        else{
+            for (Painter<JXMapViewer> posPainter : posPainters) {
+                painters.add(posPainter);
+            }
+            
+            CompoundPainter<JXMapViewer> painter = new CompoundPainter<>(painters);
+            mapViewer.setOverlayPainter(painter);
+            mapViewer.repaint();
+        } 
     }
 
     private void deleteLine() {

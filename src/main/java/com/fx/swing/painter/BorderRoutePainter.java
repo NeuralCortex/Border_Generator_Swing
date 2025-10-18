@@ -9,6 +9,7 @@ import java.awt.RenderingHints;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Point2D;
 import java.util.List;
+import java.util.Locale;
 import org.jxmapviewer.JXMapViewer;
 import org.jxmapviewer.painter.Painter;
 import org.jxmapviewer.viewer.GeoPosition;
@@ -87,7 +88,7 @@ public class BorderRoutePainter implements Painter<JXMapViewer> {
             GeoPosition next = track.get(i + 1);
             length += HelperFunctions.getDistance(start.getLongitude(), start.getLatitude(), next.getLongitude(), next.getLatitude());
         }
-        return String.format("%.2f", length) + " km";
+        return String.format(Locale.US,"%.2f", length);
     }
 
     public List<GeoPosition> getTrack() {

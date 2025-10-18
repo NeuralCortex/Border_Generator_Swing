@@ -16,17 +16,13 @@ public class CirclePainter implements Painter<JXMapViewer> {
 
     private final Color color = Color.BLACK;
     private final boolean antiAlias = true;
-    private final GeoPosition geoPosition;
+    private GeoPosition geoPosition;
 
     public interface CirclePainterListener {
 
         public void getCircle(Ellipse2D ellipse2D);
     }
     private CirclePainterListener circlePainterListener;
-
-    public CirclePainter(GeoPosition geoPosition) {
-        this.geoPosition = geoPosition;
-    }
 
     @Override
     public void paint(Graphics2D g, JXMapViewer map, int i, int i1) {
@@ -42,7 +38,9 @@ public class CirclePainter implements Painter<JXMapViewer> {
         g.setColor(color);
         g.setStroke(new BasicStroke(1));
 
-        drawCircle(g, map);
+        if (geoPosition != null) {
+            drawCircle(g, map);
+        }
 
         g.dispose();
     }
@@ -67,6 +65,10 @@ public class CirclePainter implements Painter<JXMapViewer> {
         Line2D line2DVer = new Line2D.Double(pt.getX(), pt.getY() - radius, pt.getX(), pt.getY() + radius);
         g.draw(line2DHor);
         g.draw(line2DVer);
+    }
+
+    public void setGeoPosition(GeoPosition geoPosition) {
+        this.geoPosition = geoPosition;
     }
 
     public void setCirclePainterListener(CirclePainterListener circlePainterListener) {

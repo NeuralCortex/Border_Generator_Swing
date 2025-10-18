@@ -19,7 +19,7 @@ import javax.swing.JTable;
 
 public class LayoutFunctions {
 
-    public static JPanel createVerticalGridbag(JComponent... components) {
+    public static JPanel createVerticalGridbag(double[] heightPercentages, JComponent... components) {
         GridBagLayout gridBagLayout = new GridBagLayout();
         GridBagConstraints gridBagConstraints = new GridBagConstraints();
         JPanel panel = new JPanel();
@@ -37,19 +37,23 @@ public class LayoutFunctions {
             } else {
                 gridBagConstraints.insets = new Insets(0, 0, 0, 0);
             }
+            
+            gridBagConstraints.anchor=GridBagConstraints.EAST;
 
             if (component instanceof JTable) {
                 JScrollPane scrollPane = new JScrollPane(component, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 
                 gridBagConstraints.weightx = 1.0;
-                gridBagConstraints.weighty = 1.0;
+                gridBagConstraints.weighty = heightPercentages[i] / 100.0;
                 gridBagConstraints.fill = GridBagConstraints.BOTH;
 
                 panel.add(scrollPane, gridBagConstraints);
             } else {
                 gridBagConstraints.weightx = 0.0;
                 gridBagConstraints.weighty = 0.0;
-                gridBagConstraints.fill = GridBagConstraints.HORIZONTAL;
+               
+                  gridBagConstraints.fill = GridBagConstraints.HORIZONTAL;   
+              
 
                 panel.add(component, gridBagConstraints);
             }

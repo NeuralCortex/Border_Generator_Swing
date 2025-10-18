@@ -1,56 +1,76 @@
 package com.fx.swing.adapter;
 
+import com.fx.swing.Globals;
 import com.fx.swing.painter.BorderLinePainter;
+import com.fx.swing.painter.IntersectionPainter;
+import com.fx.swing.painter.LinePainter;
+import com.fx.swing.tools.HelperFunctions;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.List;
+import java.util.ResourceBundle;
+import javax.swing.ImageIcon;
+import javax.swing.JPopupMenu;
+import javax.swing.JMenuItem;
+import javax.swing.SwingUtilities;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jxmapviewer.JXMapViewer;
 import org.jxmapviewer.painter.Painter;
 import org.jxmapviewer.viewer.GeoPosition;
 
-public class CircleSelectionAdapter extends MouseAdapter implements ActionListener, KeyListener {
+public class CircleSelectionAdapter extends MouseAdapter {
 
     private static final Logger _log = LogManager.getLogger(CircleSelectionAdapter.class);
     private final JXMapViewer viewer;
-    private List<Painter<JXMapViewer>> painters;
+    private final List<Painter<JXMapViewer>> painters;
     private int idx;
-    private BorderLinePainter.BORDER_TYPE border_type = BorderLinePainter.BORDER_TYPE.FROM;
+    private final BorderLinePainter.BORDER_TYPE border_type = BorderLinePainter.BORDER_TYPE.FROM;
 
-    public interface CirlceSelectionAdapterListener {
+    // Context menu
+    private final JPopupMenu contextMenu;
+    private final JMenuItem selectIntersectionItem;
+    private final JMenuItem cutBorderItem;
+    private boolean isStart = true;
 
-        public void drawCircle(GeoPosition geoPosition, BorderLinePainter.BORDER_TYPE border_type);
+    // Track intersection count for cut border enablement
+    private int intersectionCount = 0;
+    private BorderLinePainter fromPainter = null;
+    private BorderLinePainter toPainter = null;
 
-        public void drawStartLine1(int start) throws Exception;
+    public interface CircleSelectionAdapterListener {
 
-        public void drawStartLine2() throws Exception;
+        void drawCircle(GeoPosition geoPosition, BorderLinePainter.BORDER_TYPE border_type);
 
-        public void drawEndLine1(int end) throws Exception;
+        void selectIntersection(boolean isStart, int idx) throws Exception;
 
-        public void drawEndLine2() throws Exception;
+        void cutBorder() throws Exception;
 
-        public void drawFullResBorder() throws Exception;
-
-        public void showErrorDlg();
+        void showErrorDlg();
     }
 
-    private CirlceSelectionAdapterListener cirlceSelectionAdapterListener;
+    private CircleSelectionAdapterListener circleSelectionAdapterListener;
 
-    public CircleSelectionAdapter(JXMapViewer viewer, List<Painter<JXMapViewer>> painters) {
+    public CircleSelectionAdapter(JXMapViewer viewer, List<Painter<JXMapViewer>> painters,ResourceBundle bundle) {
         this.viewer = viewer;
         this.painters = painters;
-    }
 
-    @Override
-    public void mousePressed(MouseEvent e) {
+        // Initialize context menu
+        contextMenu = new JPopupMenu();
+        selectIntersectionItem = new JMenuItem(bundle.getString("mi.select"),HelperFunctions.resizeIcon(new ImageIcon(CircleSelectionAdapter.class.getResource(Globals.PNG_SELECT)),16,16));
+        cutBorderItem = new JMenuItem(bundle.getString("mi.cut"),HelperFunctions.resizeIcon(new ImageIcon(CircleSelectionAdapter.class.getResource(Globals.PNG_CUT)),16,16));
 
+        selectIntersectionItem.addActionListener(this::handleSelectIntersection);
+        cutBorderItem.addActionListener(this::handleCutBorder);
+
+        contextMenu.add(selectIntersectionItem);
+        contextMenu.add(cutBorderItem);
+
+        // Initially disable cut border
+        cutBorderItem.setEnabled(false);
     }
 
     @Override
@@ -60,72 +80,102 @@ public class CircleSelectionAdapter extends MouseAdapter implements ActionListen
         double y = rect.getY() + e.getY();
 
         GeoPosition pos = viewer.getTileFactory().pixelToGeo(new Point((int) x, (int) y), viewer.getZoom());
-        cirlceSelectionAdapterListener.drawCircle(pos, border_type);
+        circleSelectionAdapterListener.drawCircle(pos, border_type);
     }
 
     @Override
-    public void mouseReleased(MouseEvent e) {
-
-    }
-
-    @Override
-    public void actionPerformed(ActionEvent e) {
-
-    }
-
-    @Override
-    public void keyTyped(KeyEvent ke) {
-
-    }
-
-    @Override
-    public void keyPressed(KeyEvent ke) {
-        if (ke.getKeyCode() == KeyEvent.VK_1) {
-            try {
-                border_type = BorderLinePainter.BORDER_TYPE.FROM;
-                cirlceSelectionAdapterListener.drawStartLine1(idx);
-                border_type = BorderLinePainter.BORDER_TYPE.TO;
-                cirlceSelectionAdapterListener.drawStartLine2();
-            } catch (Exception ex) {
-                _log.error(ex.getMessage());
-                cirlceSelectionAdapterListener.showErrorDlg();
-            }
-        }
-        if (ke.getKeyCode() == KeyEvent.VK_2) {
-            try {
-                border_type = BorderLinePainter.BORDER_TYPE.FROM;
-                cirlceSelectionAdapterListener.drawEndLine1(idx);
-                border_type = BorderLinePainter.BORDER_TYPE.TO;
-                cirlceSelectionAdapterListener.drawEndLine2();
-            } catch (Exception ex) {
-                _log.error(ex.getMessage());
-                cirlceSelectionAdapterListener.showErrorDlg();
-            }
-        }
-        if (ke.getKeyCode() == KeyEvent.VK_3) {
-            try {
-                cirlceSelectionAdapterListener.drawFullResBorder();
-            } catch (Exception ex) {
-                _log.error(ex.getMessage());
-                cirlceSelectionAdapterListener.showErrorDlg();
-            }
+    public void mousePressed(MouseEvent e) {
+        if (SwingUtilities.isRightMouseButton(e)) {
+            // Show context menu on right-click
+            contextMenu.show(viewer, e.getX(), e.getY());
         }
     }
 
-    @Override
-    public void keyReleased(KeyEvent ke) {
+    // Handle "Select intersection" menu item
+    private void handleSelectIntersection(ActionEvent e) {
+        try {
+            if (idx >= 0) {
+                circleSelectionAdapterListener.selectIntersection(isStart, idx);
+                updateIntersectionState();
+                isStart = !isStart;
+            }
+        } catch (Exception ex) {
+            _log.error("Error selecting intersection: " + ex.getMessage(), ex);
+            circleSelectionAdapterListener.showErrorDlg();
+        }
+    }
 
+    // Handle "Cut border" menu item
+    private void handleCutBorder(ActionEvent e) {
+        try {
+            if (intersectionCount == 2) {
+                circleSelectionAdapterListener.cutBorder();
+                // Reset after cut operation
+                resetIntersectionState();
+            }
+        } catch (Exception ex) {
+            _log.error("Error cutting border: " + ex.getMessage(), ex);
+            circleSelectionAdapterListener.showErrorDlg();
+        }
+    }
+
+    /**
+     * Updates intersection state after selection Tracks FROM and TO painters to
+     * determine if we have 2 intersections
+     */
+    private void updateIntersectionState() {
+        // Find the selected painter at the current idx
+        boolean isIntersection = false;
+        for (int i = 0; i < painters.size(); i++) {
+            Painter<JXMapViewer> painter = painters.get(i);
+            if (painter instanceof BorderLinePainter borderLinePainter) {
+                if (borderLinePainter.isIntersection() && borderLinePainter.getBorder_type() == BorderLinePainter.BORDER_TYPE.TO) {
+                    isIntersection = true;
+                }
+            }
+            if (painter instanceof IntersectionPainter intersectionPainter) {
+                if (intersectionPainter.getLine_pos() == LinePainter.LINE_POS.START) {
+                    intersectionCount = 1;
+                } else if (intersectionPainter.getLine_pos() == LinePainter.LINE_POS.END) {
+                    intersectionCount = 2;
+                }
+            }
+        }
+
+        // Enable cut border only when we have both FROM and TO intersections
+        selectIntersectionItem.setEnabled(isIntersection && intersectionCount < 2);
+        cutBorderItem.setEnabled(intersectionCount == 2);
+    }
+
+    /**
+     * Reset intersection state after cut operation or when needed
+     */
+    private void resetIntersectionState() {
+        intersectionCount = 0;
+        fromPainter = null;
+        toPainter = null;
+
+        // Clear selected lines from painters
+        if (fromPainter != null) {
+            fromPainter.setSelLine(null);
+            fromPainter.setSelColor(null);
+        }
+        if (toPainter != null) {
+            toPainter.setSelLine(null);
+            toPainter.setSelColor(null);
+        }
+
+        // Update menu state
+        selectIntersectionItem.setEnabled(true);
+        cutBorderItem.setEnabled(false);
     }
 
     public void setIdx(int idx) {
         this.idx = idx;
+        updateIntersectionState();
     }
 
-    public void setBorder_type(BorderLinePainter.BORDER_TYPE border_type) {
-        this.border_type = border_type;
-    }
-
-    public void setCirlceSelectionAdapterListener(CirlceSelectionAdapterListener cirlceSelectionAdapterListener) {
-        this.cirlceSelectionAdapterListener = cirlceSelectionAdapterListener;
+    public void setCircleSelectionAdapterListener(CircleSelectionAdapterListener circleSelectionAdapterListener) {
+        this.circleSelectionAdapterListener = circleSelectionAdapterListener;
     }
 }
