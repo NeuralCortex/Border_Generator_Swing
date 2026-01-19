@@ -9,6 +9,7 @@ import java.awt.RenderingHints;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import org.jxmapviewer.JXMapViewer;
 import org.jxmapviewer.painter.Painter;
@@ -17,37 +18,41 @@ import org.jxmapviewer.viewer.GeoPosition;
 public class SelectionLinePainter implements Painter<JXMapViewer> {
 
     private final List<PositionPOJO> border;
-    private int start;
-    private int end;
     private boolean invert = false;
-    private final List<PositionPOJO> borderFull;
     private GeoPosition geoPositionStart;
     private GeoPosition geoPositionEnd;
+    private int cStart;
+    private int cEnd;
 
-    public SelectionLinePainter(List<PositionPOJO> border, int start, int end, List<PositionPOJO> borderFull, GeoPosition geoPositionStart, GeoPosition geoPositionEnd) {
-        this.start = start;
-        this.end = end;
-        this.borderFull = borderFull;
-        this.geoPositionStart = geoPositionStart;
-        this.geoPositionEnd = geoPositionEnd;
-        this.border = cutEndOff(border);
-    }
+    private List<PositionPOJO> list;
+    private final HashMap<Integer, GeoPosition> map;
 
-    private List<PositionPOJO> cutEndOff(List<PositionPOJO> border) {
+    public SelectionLinePainter(List<PositionPOJO> border, HashMap<Integer, GeoPosition> map) {
+        this.border = border;
+        this.map = map;
 
-        int help = start;
-        if (end < start) {
-            start = end;
-            end = help;
+        List<Integer> keys = new ArrayList<>(map.keySet());
+
+        int start = keys.get(0);
+        int end = keys.get(1);
+
+        geoPositionStart = map.get(start);
+        geoPositionEnd = map.get(end);
+
+        PositionPOJO s = border.get(start);
+        PositionPOJO e = border.get(end);
+
+        if (s.getLon() < geoPositionStart.getLongitude()) {
+            cStart = start + 1;
+        } else {
+            cStart = start;
         }
 
-        List<PositionPOJO> posList = new ArrayList<>();
-        for (int i = start; i < end; i++) {
-            posList.add(border.get(i));
+        if (e.getLon() > geoPositionEnd.getLongitude()) {
+            cEnd = end - 1;
+        } else {
+            cEnd = end;
         }
-        posList.remove(0);
-        posList.remove(posList.size() - 1);
-        return posList;
     }
 
     @Override
@@ -69,17 +74,7 @@ public class SelectionLinePainter implements Painter<JXMapViewer> {
     private void drawRoute(Graphics2D g, JXMapViewer map) {
         g.setColor(Color.RED);
 
-        int help = start;
-        if (end < start) {
-            start = end;
-            end = help;
-        }
-
-        GeoPosition helpGeo = geoPositionStart;
-        if (geoPositionEnd.getLongitude() < geoPositionStart.getLongitude()) {
-            geoPositionStart = geoPositionEnd;
-            geoPositionEnd = helpGeo;
-        }
+        list = new ArrayList<>();
 
         GeneralPath path = new GeneralPath();
 
@@ -87,15 +82,19 @@ public class SelectionLinePainter implements Painter<JXMapViewer> {
             Point2D pt = map.getTileFactory().geoToPixel(geoPositionEnd, map.getZoom());
             path.moveTo(pt.getX(), pt.getY());
 
-            for (int i = start; i >= 0; i--) {
-                PositionPOJO pair = borderFull.get(i);
+            list.add(new PositionPOJO(geoPositionEnd.getLongitude(), geoPositionEnd.getLatitude()));
+
+            for (int i = cEnd + 2; i < border.size(); i++) {
+                PositionPOJO pair = border.get(i);
+                list.add(pair);
                 GeoPosition geoPosition = new GeoPosition(pair.getLat(), pair.getLon());
                 pt = map.getTileFactory().geoToPixel(geoPosition, map.getZoom());
                 path.lineTo(pt.getX(), pt.getY());
             }
 
-            for (int i = borderFull.size() - 1; i > end; i--) {
-                PositionPOJO pair = borderFull.get(i);
+            for (int i = 1; i < cStart; i++) {
+                PositionPOJO pair = border.get(i);
+                list.add(pair);
                 GeoPosition geoPosition = new GeoPosition(pair.getLat(), pair.getLon());
                 pt = map.getTileFactory().geoToPixel(geoPosition, map.getZoom());
                 path.lineTo(pt.getX(), pt.getY());
@@ -103,13 +102,17 @@ public class SelectionLinePainter implements Painter<JXMapViewer> {
 
             pt = map.getTileFactory().geoToPixel(geoPositionStart, map.getZoom());
             path.lineTo(pt.getX(), pt.getY());
+            list.add(new PositionPOJO(geoPositionStart.getLongitude(), geoPositionStart.getLatitude()));
 
         } else {
             Point2D pt = map.getTileFactory().geoToPixel(geoPositionStart, map.getZoom());
             path.moveTo(pt.getX(), pt.getY());
 
-            for (int i = border.size() - 1; i >= 0; i--) {
+            list.add(new PositionPOJO(geoPositionStart.getLongitude(), geoPositionStart.getLatitude()));
+
+            for (int i = cStart + 1; i < cEnd; i++) {
                 PositionPOJO pair = border.get(i);
+                list.add(pair);
                 GeoPosition geoPosition = new GeoPosition(pair.getLat(), pair.getLon());
                 pt = map.getTileFactory().geoToPixel(geoPosition, map.getZoom());
                 path.lineTo(pt.getX(), pt.getY());
@@ -117,58 +120,18 @@ public class SelectionLinePainter implements Painter<JXMapViewer> {
 
             pt = map.getTileFactory().geoToPixel(geoPositionEnd, map.getZoom());
             path.lineTo(pt.getX(), pt.getY());
+
+            list.add(new PositionPOJO(geoPositionEnd.getLongitude(), geoPositionEnd.getLatitude()));
         }
 
         g.draw(path);
-    }
-
-    public List<PositionPOJO> getBorder() {
-        return border;
     }
 
     public void setInvert(boolean invert) {
         this.invert = invert;
     }
 
-    public List<PositionPOJO> getFullBorder() {
-        List<PositionPOJO> fullList = new ArrayList<>();
-
-        int help = start;
-        if (end < start) {
-            start = end;
-            end = help;
-        }
-
-        GeoPosition helpGeo = geoPositionStart;
-        if (geoPositionEnd.getLongitude() < geoPositionStart.getLongitude()) {
-            geoPositionStart = geoPositionEnd;
-            geoPositionEnd = helpGeo;
-        }
-
-        if (invert) {
-            fullList.add(new PositionPOJO(geoPositionEnd.getLongitude(), geoPositionEnd.getLatitude()));
-
-            for (int i = start - 1; i >= 0; i--) {
-                PositionPOJO position = borderFull.get(i);
-                fullList.add(new PositionPOJO(position.getLon(), position.getLat(), i));
-            }
-            for (int i = borderFull.size() - 1; i > end; i--) {
-                PositionPOJO position = borderFull.get(i);
-                fullList.add(new PositionPOJO(position.getLon(), position.getLat(), i));
-            }
-
-            fullList.add(new PositionPOJO(geoPositionStart.getLongitude(), geoPositionStart.getLatitude()));
-        } else {
-            fullList.add(new PositionPOJO(geoPositionStart.getLongitude(), geoPositionStart.getLatitude()));
-
-            for (int i = border.size() - 1; i >= 0; i--) {
-                PositionPOJO position = border.get(i);
-                fullList.add(new PositionPOJO(position.getLon(), position.getLat(), i));
-            }
-
-            fullList.add(new PositionPOJO(geoPositionEnd.getLongitude(), geoPositionEnd.getLatitude()));
-        }
-
-        return fullList;
+    public List<PositionPOJO> getConstructedBorder() {
+        return list;
     }
 }

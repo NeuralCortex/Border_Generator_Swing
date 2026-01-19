@@ -56,17 +56,16 @@ public class BorderRoutePainter implements Painter<JXMapViewer> {
 
         GeneralPath path = new GeneralPath();
         int count = 0;
-        for (GeoPosition pair : track) {
+        for (int i = 0; i < track.size(); i++) {
+            GeoPosition geoPosition = track.get(i);
 
-            Point2D pt = map.getTileFactory().geoToPixel(pair, map.getZoom());
+            Point2D pt = map.getTileFactory().geoToPixel(geoPosition, map.getZoom());
 
             if (first) {
                 path.moveTo(pt.getX(), pt.getY());
                 first = false;
             } else {
-                //if (count % 21 == 0 || count % 22 == 0) {
                 path.lineTo(pt.getX(), pt.getY());
-                //}
             }
             count++;
         }
@@ -88,7 +87,7 @@ public class BorderRoutePainter implements Painter<JXMapViewer> {
             GeoPosition next = track.get(i + 1);
             length += HelperFunctions.getDistance(start.getLongitude(), start.getLatitude(), next.getLongitude(), next.getLatitude());
         }
-        return String.format(Locale.US,"%.2f", length);
+        return String.format(Locale.US, "%.2f", length);
     }
 
     public List<GeoPosition> getTrack() {

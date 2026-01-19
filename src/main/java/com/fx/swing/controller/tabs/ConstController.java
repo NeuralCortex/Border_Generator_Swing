@@ -33,9 +33,13 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.ResourceBundle;
+import java.util.stream.Collectors;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -90,6 +94,9 @@ public class ConstController extends JPanel implements PopulateInterface, Action
     private CircleSelectionAdapter cirlceSelectionAdapter;
     private Line2D lineFrom;
 
+    private String from;
+    private String to;
+
     public ConstController(MainController mainController) {
         this.mainController = mainController;
         this.bundle = mainController.getBundle();
@@ -109,7 +116,6 @@ public class ConstController extends JPanel implements PopulateInterface, Action
 
         btnCSV.setEnabled(false);
         btnHCM.setEnabled(false);
-
         btnReset.addActionListener(this);
         btnCSV.addActionListener(this);
         btnFrom.addActionListener(this);
@@ -222,10 +228,12 @@ public class ConstController extends JPanel implements PopulateInterface, Action
 
                 if (from) {
                     lbFrom.setText(bundle.getString("btn.from") + ": " + borderFile.getName());
+                    this.from = borderFile.getName();
                     BorderLinePainter borderLinePainter = new BorderLinePainter(posList, Color.BLACK, BorderLinePainter.BORDER_TYPE.FROM);
                     painters.add(borderLinePainter);
                 } else {
                     lbTo.setText(bundle.getString("btn.to") + ": " + borderFile.getName());
+                    this.to = borderFile.getName();
                     // Remove TO painters safely
                     Iterator<Painter<JXMapViewer>> iterator = painters.iterator();
                     while (iterator.hasNext()) {
@@ -334,22 +342,13 @@ public class ConstController extends JPanel implements PopulateInterface, Action
 
                 List<PositionPOJO> posList = null;
 
+                HashMap<Integer, GeoPosition> map = new HashMap<>();
+
                 for (int i = 0; i < painters.size(); i++) {
                     Painter painter = painters.get(i);
 
                     if (painter instanceof IntersectionPainter intersectionPainter) {
-                        switch (intersectionPainter.getLine_pos()) {
-                            case START -> {
-                                geoPositionStart = intersectionPainter.getGeoPosition();
-                                start = intersectionPainter.getIdx();
-                            }
-                            case END -> {
-                                geoPositionEnd = intersectionPainter.getGeoPosition();
-                                end = intersectionPainter.getIdx();
-                            }
-                            default ->
-                                throw new AssertionError();
-                        }
+                        map.put(intersectionPainter.getIdx(), intersectionPainter.getGeoPosition());
                     }
 
                     if (painter instanceof BorderLinePainter borderLinePainter) {
@@ -371,7 +370,16 @@ public class ConstController extends JPanel implements PopulateInterface, Action
                     }
                 }
 
-                SelectionLinePainter selectionLinePainter = new SelectionLinePainter(posList, start, end, posList, geoPositionStart, geoPositionEnd);
+                HashMap<Integer, GeoPosition> sorted = map.entrySet().stream()
+                        .sorted(Map.Entry.comparingByKey()) //sorts by key ascending
+                        .collect(Collectors.toMap(
+                                Map.Entry::getKey,
+                                Map.Entry::getValue,
+                                (oldVal, newVal) -> oldVal,
+                                LinkedHashMap::new
+                        ));
+
+                SelectionLinePainter selectionLinePainter = new SelectionLinePainter(posList, sorted);
                 painters.add(selectionLinePainter);
 
                 CompoundPainter<JXMapViewer> painter = new CompoundPainter<>(painters);
@@ -466,6 +474,15 @@ public class ConstController extends JPanel implements PopulateInterface, Action
             dir.mkdir();
         }
         fileChooser.setCurrentDirectory(new File(borderDir));
+
+        if (HelperFunctions.isValidCodeFileName(from) && HelperFunctions.isValidCodeFileName(to)) {
+            String from = this.from.substring(0, 3);
+            String to = this.to.substring(0, 3);
+            String dist = this.from.substring(4, 7);
+            String fileName = from + to + "." + dist + ".csv";
+            fileChooser.setSelectedFile(new File(fileName));
+        }
+
         int result = fileChooser.showSaveDialog(this);
 
         if (result == JFileChooser.APPROVE_OPTION) {
@@ -476,7 +493,7 @@ public class ConstController extends JPanel implements PopulateInterface, Action
                         Painter painter = painters.get(i);
                         if (painter instanceof SelectionLinePainter selectionLinePainter) {
 
-                            List<PositionPOJO> list = selectionLinePainter.getFullBorder();
+                            List<PositionPOJO> list = selectionLinePainter.getConstructedBorder();
 
                             BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(borderFile));
                             for (PositionPOJO position : list) {
@@ -503,6 +520,15 @@ public class ConstController extends JPanel implements PopulateInterface, Action
             dir.mkdir();
         }
         fileChooser.setCurrentDirectory(new File(borderDir));
+
+        if (HelperFunctions.isValidCodeFileName(from) && HelperFunctions.isValidCodeFileName(to)) {
+            String from = this.from.substring(0, 3);
+            String to = this.to.substring(0, 3);
+            String dist = this.from.substring(4, 7);
+            String fileName = from + to + "." + dist;
+            fileChooser.setSelectedFile(new File(fileName));
+        }
+
         int result = fileChooser.showSaveDialog(this);
 
         if (result == JFileChooser.APPROVE_OPTION) {
@@ -513,7 +539,7 @@ public class ConstController extends JPanel implements PopulateInterface, Action
                         Painter painter = painters.get(i);
                         if (painter instanceof SelectionLinePainter selectionLinePainter) {
 
-                            List<PositionPOJO> list = selectionLinePainter.getFullBorder();
+                            List<PositionPOJO> list = selectionLinePainter.getConstructedBorder();
 
                             DataOutputStream dataOutputStream = new DataOutputStream(new FileOutputStream(borderFile));
                             for (PositionPOJO position : list) {
@@ -597,7 +623,6 @@ public class ConstController extends JPanel implements PopulateInterface, Action
 
         btnCSV.setEnabled(false);
         btnHCM.setEnabled(false);
-
         lbFrom.setText("");
         lbTo.setText("");
 

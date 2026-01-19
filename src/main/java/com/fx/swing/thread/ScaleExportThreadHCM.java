@@ -48,6 +48,9 @@ public class ScaleExportThreadHCM extends Thread implements ActionListener {
                 if (scalePOJO.isActive()) {
                     try {
                         String hcmFileName = infoPOJO.getValue() + "." + String.format("%03d", scalePOJO.getDistance());
+                        if (infoPOJO.getParam().equalsIgnoreCase("country")) {
+                            hcmFileName = infoPOJO.getCode() + "." + String.format("%03d", scalePOJO.getDistance());
+                        }
 
                         File dir = new File(Globals.HCM_PATH);
                         if (!dir.exists()) {

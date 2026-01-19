@@ -346,7 +346,7 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
         listLocal.add(scalePOJO);
 
         ScaleTableModel model = (ScaleTableModel) tableScale.getModel();
-        model.setList(listLocal); 
+        model.setList(listLocal);
 
         // Single repaint after all changes
         updateMapPainter();
@@ -364,26 +364,26 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
             JOptionPane.showMessageDialog(mainController, "Select state or country first", "Information", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
-        
-         ScalePOJO first = listLocal.get(0);
+
+        ScalePOJO first = listLocal.get(0);
 
         if (!painters.isEmpty()) {
-            BorderPainter firstPainter=null;
-             ScaleTableModel scaleTableModel = (ScaleTableModel) tableScale.getModel();
+            BorderPainter firstPainter = null;
+            ScaleTableModel scaleTableModel = (ScaleTableModel) tableScale.getModel();
             for (int i = 0; i < scaleTableModel.getList().size(); i++) {
                 ScalePOJO data = scaleTableModel.getList().get(i);
                 if (data.getDistance() == 0) {
-                    firstPainter=data.getBorderPainter();
-                    first=data;
+                    firstPainter = data.getBorderPainter();
+                    first = data;
                     break;
                 }
             }
             painters.clear();
-            if(first.isActive()){
-             painters.add(firstPainter);   
+            if (first.isActive()) {
+                painters.add(firstPainter);
             }
         }
-       
+
         list.clear();
         list.add(first);
 
@@ -536,6 +536,8 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
             info = objectMapper.readTree(new URL(baseURL));
             JsonNode address = info.get("address");
 
+            String code = address.get("country_code").asText();
+
             List<InfoPOJO> list = new ArrayList<>();
             ((InfoTableModel) tableInfo.getModel()).getList().clear();
             ((InfoTableModel) tableInfo.getModel()).fireTableDataChanged();
@@ -545,8 +547,9 @@ public class MapController extends JPanel implements PopulateInterface, ActionLi
                 String key = String.valueOf(entry.getKey());
                 key = key.substring(0, 1).toUpperCase() + key.substring(1);
                 String value = String.valueOf(entry.getValue());
+
                 if (key.equalsIgnoreCase("country") || key.equalsIgnoreCase("state")) {
-                    list.add(new InfoPOJO(key, value.replace("\"", "")));
+                    list.add(new InfoPOJO(key, value.replace("\"", ""), code));
                 }
             }
 

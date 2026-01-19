@@ -33,7 +33,7 @@ public class ScaleExportThreadCSV extends Thread implements ActionListener {
     @Override
     public void run() {
         if (infoPOJO != null) {
-            
+
             List<ScalePOJO> list = ((ScaleTableModel) table.getModel()).getList();
 
             for (int i = 0; i < list.size(); i++) {
@@ -47,6 +47,9 @@ public class ScaleExportThreadCSV extends Thread implements ActionListener {
                 if (scalePOJO.isActive()) {
                     try {
                         String csvFileName = infoPOJO.getValue() + "." + String.format("%03d", scalePOJO.getDistance()) + ".csv";
+                        if (infoPOJO.getParam().equalsIgnoreCase("country")) {
+                            csvFileName = infoPOJO.getCode() + "." + String.format("%03d", scalePOJO.getDistance()) + ".csv";
+                        }
 
                         File dir = new File(Globals.CSV_PATH);
                         if (!dir.exists()) {
@@ -59,13 +62,13 @@ public class ScaleExportThreadCSV extends Thread implements ActionListener {
                                 writer.write(c.getLon() + ";" + c.getLat() + "\n");
                             } catch (IOException ex) {
                                 _log.error(ex.getMessage());
-                               
+
                             }
                         });
                         writer.close();
                     } catch (Exception ex) {
                         _log.error(ex.getMessage());
-                       
+
                     }
                 }
 

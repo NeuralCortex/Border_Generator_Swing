@@ -8,6 +8,7 @@ import java.awt.Toolkit;
 import java.awt.Window;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Locale;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JTabbedPane;
@@ -81,5 +82,36 @@ public class HelperFunctions {
     public static double getDistance(double lon1, double lat1, double lon2, double lat2) {
         double dist = SloppyMath.haversinMeters(lat1, lon1, lat2, lon2) / 1000.0;
         return dist;
+    }
+
+    public static String alpha2ToAlpha3(String alpha2) {
+        if (alpha2 == null || alpha2.length() != 2) {
+            return null;
+        }
+
+        // Locale expects uppercase
+        String upper = alpha2.toUpperCase(Locale.ROOT);
+
+        // Special case: United Kingdom has inconsistent behavior in some JDKs
+        if ("GB".equals(upper)) {
+            return "GBR";
+        }
+
+        try {
+            Locale locale = new Locale("", upper);
+            String alpha3 = locale.getISO3Country();
+
+            return alpha3.isEmpty() ? null : alpha3;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public static boolean isValidCodeFileName(String filename) {
+        if (filename == null || filename.isEmpty()) {
+            return false;
+        }
+
+        return filename.matches("[A-Z]{3}\\.\\d{3}\\.csv");
     }
 }
